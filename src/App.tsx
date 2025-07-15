@@ -634,21 +634,36 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
       <header className="border-b bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-8 w-8 text-primary" />
-              <h1 className="text-xl font-semibold">AI Product Launch Generator</h1>
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-primary flex-shrink-0" />
+              <h1 className="text-lg sm:text-xl font-semibold truncate">
+                <span className="hidden sm:inline">AI Product Launch Generator</span>
+                <span className="sm:hidden">Launch Generator</span>
+              </h1>
             </div>
-            <div className="flex items-center gap-4">
-              {/* Project Management */}
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 sm:gap-4">
+              {/* Project Management - Mobile Optimized */}
+              <div className="flex items-center gap-1 sm:gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setShowProjectSelector(!showProjectSelector)}
                   disabled={isLoadingProjects}
+                  className="hidden sm:flex"
                 >
                   <FolderOpen className="h-4 w-4 mr-2" />
                   {currentProject ? currentProject.name : 'Select Project'}
+                </Button>
+                
+                {/* Mobile Project Selector */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowProjectSelector(!showProjectSelector)}
+                  disabled={isLoadingProjects}
+                  className="sm:hidden"
+                >
+                  <FolderOpen className="h-4 w-4" />
                 </Button>
                 
                 <Button
@@ -672,9 +687,10 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                 )}
               </div>
               
-              <span className="text-sm text-muted-foreground">Welcome, {user.email}</span>
+              <span className="text-sm text-muted-foreground hidden md:block">Welcome, {user.email}</span>
               <Button variant="outline" size="sm" onClick={() => blink.auth.logout()}>
-                Sign Out
+                <span className="hidden sm:inline">Sign Out</span>
+                <span className="sm:hidden">Out</span>
               </Button>
             </div>
           </div>
@@ -687,7 +703,7 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium">Your Projects</h3>
+                <h3 className="text-base sm:text-lg font-medium">Your Projects</h3>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -703,7 +719,7 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                   <span className="ml-2 text-muted-foreground">Loading projects...</span>
                 </div>
               ) : projects.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {projects.map((project) => (
                     <Card
                       key={project.id}
@@ -715,18 +731,18 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                         setShowProjectSelector(false)
                       }}
                     >
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
+                      <CardContent className="p-3 sm:p-4">
+                        <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-medium truncate">{project.name}</h4>
-                            <p className="text-sm text-muted-foreground">
+                            <h4 className="font-medium truncate text-sm sm:text-base">{project.name}</h4>
+                            <p className="text-xs sm:text-sm text-muted-foreground truncate">
                               {project.websiteUrl || 'No website set'}
                             </p>
                             <p className="text-xs text-muted-foreground">
                               Updated {new Date(project.updatedAt).toLocaleDateString()}
                             </p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 flex-shrink-0">
                             {currentProject?.id === project.id && (
                               <CheckCircle className="h-4 w-4 text-primary" />
                             )}
@@ -739,8 +755,9 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                                   deleteProject(project.id)
                                 }
                               }}
+                              className="h-8 w-8 p-0"
                             >
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <Trash2 className="h-3 w-3 text-destructive" />
                             </Button>
                           </div>
                         </div>
@@ -762,10 +779,10 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
           {/* Left Column - Input & Controls */}
-          <div className="lg:col-span-1 space-y-6">
+          <div className="lg:col-span-1 space-y-4 sm:space-y-6">
             {/* URL Input */}
             <Card>
               <CardHeader>
@@ -775,16 +792,18 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Input
                     placeholder="https://yourproduct.com"
                     value={websiteUrl}
                     onChange={(e) => setWebsiteUrl(e.target.value)}
                     disabled={isExtracting}
+                    className="flex-1"
                   />
                   <Button 
                     onClick={extractWebsiteData}
                     disabled={isExtracting || !websiteUrl.trim()}
+                    className="w-full sm:w-auto"
                   >
                     {isExtracting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Extract'}
                   </Button>
@@ -810,12 +829,12 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div>
-                    <h3 className="font-medium">{websiteData.title}</h3>
-                    <p className="text-sm text-muted-foreground">{websiteData.description}</p>
+                    <h3 className="font-medium text-sm sm:text-base">{websiteData.title}</h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{websiteData.description}</p>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <ExternalLink className="h-4 w-4" />
-                    <a href={websiteData.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                  <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                    <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+                    <a href={websiteData.url} target="_blank" rel="noopener noreferrer" className="hover:underline truncate">
                       {websiteData.url}
                     </a>
                   </div>
@@ -841,16 +860,16 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                       }`}
                       onClick={() => togglePlatform(platform.id)}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded ${platform.color} text-white`}>
-                          <Icon className="h-4 w-4" />
+                      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                        <div className={`p-1.5 sm:p-2 rounded ${platform.color} text-white flex-shrink-0`}>
+                          <Icon className="h-3 w-3 sm:h-4 sm:w-4" />
                         </div>
-                        <div>
-                          <p className="font-medium">{platform.name}</p>
-                          <p className="text-sm text-muted-foreground">{platform.limit} chars</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm sm:text-base truncate">{platform.name}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground">{platform.limit} chars</p>
                         </div>
                       </div>
-                      {isSelected && <CheckCircle className="h-5 w-5 text-primary" />}
+                      {isSelected && <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />}
                     </div>
                   )
                 })}
@@ -887,33 +906,39 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
           <div className="lg:col-span-2">
             <Tabs defaultValue="posts" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="posts">Generated Posts</TabsTrigger>
-                <TabsTrigger value="chat">AI Chat</TabsTrigger>
+                <TabsTrigger value="posts" className="text-sm sm:text-base">
+                  <span className="hidden sm:inline">Generated Posts</span>
+                  <span className="sm:hidden">Posts</span>
+                </TabsTrigger>
+                <TabsTrigger value="chat" className="text-sm sm:text-base">
+                  <span className="hidden sm:inline">AI Chat</span>
+                  <span className="sm:hidden">Chat</span>
+                </TabsTrigger>
               </TabsList>
               
-              <TabsContent value="posts" className="space-y-6">
+              <TabsContent value="posts" className="space-y-4 sm:space-y-6">
                 {generatedPosts.length > 0 ? (
-                  <div className="space-y-6">
+                  <div className="space-y-4 sm:space-y-6">
                     {generatedPosts.map((post, index) => {
                       const platform = PLATFORMS.find(p => p.id === post.platform)
                       const Icon = platform?.icon || Hash
                       
                       return (
                         <Card key={index}>
-                          <CardHeader>
-                            <CardTitle className="flex items-center justify-between">
+                          <CardHeader className="pb-3 sm:pb-6">
+                            <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                               <div className="flex items-center gap-2">
-                                <div className={`p-2 rounded ${platform?.color} text-white`}>
-                                  <Icon className="h-4 w-4" />
+                                <div className={`p-1.5 sm:p-2 rounded ${platform?.color} text-white`}>
+                                  <Icon className="h-3 w-3 sm:h-4 sm:w-4" />
                                 </div>
-                                {platform?.name}
+                                <span className="text-sm sm:text-base">{platform?.name}</span>
                               </div>
-                              <Badge variant={post.characterCount > (platform?.limit || 0) ? 'destructive' : 'secondary'}>
+                              <Badge variant={post.characterCount > (platform?.limit || 0) ? 'destructive' : 'secondary'} className="text-xs">
                                 {post.characterCount}/{platform?.limit} chars
                               </Badge>
                             </CardTitle>
                           </CardHeader>
-                          <CardContent className="space-y-6">
+                          <CardContent className="space-y-4 sm:space-y-6">
                             {/* Post Content */}
                             <div className="space-y-3">
                               <div className="flex items-center gap-2">
@@ -922,8 +947,8 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                                   {post.characterCount} chars
                                 </Badge>
                               </div>
-                              <div className="bg-muted p-4 rounded-lg border">
-                                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{post.content}</pre>
+                              <div className="bg-muted p-3 sm:p-4 rounded-lg border">
+                                <pre className="whitespace-pre-wrap font-sans text-xs sm:text-sm leading-relaxed">{post.content}</pre>
                               </div>
                             </div>
                             
@@ -933,10 +958,10 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                                 <Brain className="h-4 w-4 text-primary" />
                                 <h4 className="font-medium text-sm">AI Strategy & Reasoning</h4>
                               </div>
-                              <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                              <div className="bg-blue-50 dark:bg-blue-950/20 p-3 sm:p-4 rounded-lg border border-blue-200 dark:border-blue-800">
                                 <ReactMarkdown 
                                   remarkPlugins={[remarkGfm]}
-                                  className="text-sm text-blue-900 dark:text-blue-100 prose prose-sm max-w-none prose-blue"
+                                  className="text-xs sm:text-sm text-blue-900 dark:text-blue-100 prose prose-sm max-w-none prose-blue"
                                   components={{
                                     p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
                                     ul: ({ children }) => <ul className="list-disc list-inside space-y-1 mb-2">{children}</ul>,
@@ -979,11 +1004,12 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
               </TabsContent>
               
               <TabsContent value="chat" className="space-y-4">
-                <Card className="flex flex-col" style={{ height: `${Math.max(600, chatMessages.length * 120 + 300)}px` }}>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <MessageSquare className="h-5 w-5" />
-                      AI Launch Expert
+                <Card className="flex flex-col" style={{ height: `${Math.max(500, chatMessages.length * 120 + 300)}px` }}>
+                  <CardHeader className="pb-3 sm:pb-6">
+                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                      <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <span className="hidden sm:inline">AI Launch Expert</span>
+                      <span className="sm:hidden">AI Expert</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="flex-1 flex flex-col min-h-0">
@@ -1002,20 +1028,20 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                         {chatMessages.map((message, index) => (
                           <div
                             key={index}
-                            className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                            className={`flex gap-2 sm:gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                           >
                             {message.role === 'assistant' && (
-                              <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 mt-1">
-                                <Bot className="h-4 w-4 text-primary" />
+                              <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center flex-shrink-0 mt-1">
+                                <Bot className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                               </div>
                             )}
                             
                             <div
-                              className={`max-w-[85%] ${
+                              className={`max-w-[90%] sm:max-w-[85%] ${
                                 message.role === 'user'
                                   ? 'bg-primary text-primary-foreground rounded-2xl rounded-tr-md'
                                   : 'bg-muted rounded-2xl rounded-tl-md'
-                              } p-4 shadow-sm`}
+                              } p-3 sm:p-4 shadow-sm`}
                             >
                               {message.role === 'assistant' ? (
                                 <ReactMarkdown 
@@ -1039,10 +1065,10 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                                   {message.content}
                                 </ReactMarkdown>
                               ) : (
-                                <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                                <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                               )}
                               
-                              <div className="flex items-center justify-between mt-3 pt-2 border-t border-current/10">
+                              <div className="flex items-center justify-between mt-2 sm:mt-3 pt-2 border-t border-current/10">
                                 <p className="text-xs opacity-70">
                                   {message.timestamp.toLocaleTimeString()}
                                 </p>
@@ -1060,22 +1086,22 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                             </div>
                             
                             {message.role === 'user' && (
-                              <div className="bg-primary/10 rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 mt-1">
-                                <User className="h-4 w-4 text-primary" />
+                              <div className="bg-primary/10 rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center flex-shrink-0 mt-1">
+                                <User className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                               </div>
                             )}
                           </div>
                         ))}
                         
                         {isChatting && (
-                          <div className="flex gap-3 justify-start">
-                            <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0">
-                              <Bot className="h-4 w-4 text-primary" />
+                          <div className="flex gap-2 sm:gap-3 justify-start">
+                            <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center flex-shrink-0">
+                              <Bot className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
                             </div>
-                            <div className="bg-muted rounded-2xl rounded-tl-md p-4 shadow-sm">
+                            <div className="bg-muted rounded-2xl rounded-tl-md p-3 sm:p-4 shadow-sm">
                               <div className="flex items-center gap-2">
-                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                <span className="text-sm text-muted-foreground">AI is thinking...</span>
+                                <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin text-primary" />
+                                <span className="text-xs sm:text-sm text-muted-foreground">AI is thinking...</span>
                               </div>
                             </div>
                           </div>
@@ -1087,7 +1113,7 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                     
                     <Separator className="my-4" />
                     
-                    <div className="flex gap-3">
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                       <Textarea
                         placeholder="Ask the AI to improve your launch posts, suggest strategies, or refine your messaging..."
                         value={chatInput}
@@ -1099,14 +1125,14 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                           }
                         }}
                         disabled={isChatting || !websiteData}
-                        className="resize-none min-h-[80px]"
-                        rows={3}
+                        className="resize-none min-h-[60px] sm:min-h-[80px] flex-1"
+                        rows={2}
                       />
                       <Button 
                         onClick={sendChatMessage}
                         disabled={!chatInput.trim() || isChatting || !websiteData}
                         size="lg"
-                        className="px-6"
+                        className="w-full sm:w-auto sm:px-6"
                       >
                         {isChatting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send'}
                       </Button>
