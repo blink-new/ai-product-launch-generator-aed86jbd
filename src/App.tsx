@@ -97,17 +97,6 @@ function App() {
   const [showProjectSelector, setShowProjectSelector] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    const unsubscribe = blink.auth.onAuthStateChanged((state) => {
-      setUser(state.user)
-      setLoading(state.isLoading)
-      if (state.user && !state.isLoading) {
-        loadProjects()
-      }
-    })
-    return unsubscribe
-  }, [loadProjects])
-
   // Load user's projects
   const loadProjects = useCallback(async () => {
     if (!user) return
@@ -131,6 +120,17 @@ function App() {
       setIsLoadingProjects(false)
     }
   }, [user, currentProject])
+
+  useEffect(() => {
+    const unsubscribe = blink.auth.onAuthStateChanged((state) => {
+      setUser(state.user)
+      setLoading(state.isLoading)
+      if (state.user && !state.isLoading) {
+        loadProjects()
+      }
+    })
+    return unsubscribe
+  }, [loadProjects])
 
   // Load a specific project
   const loadProject = async (project: Project) => {
