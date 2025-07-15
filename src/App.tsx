@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { blink } from './blink/client'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 import { Button } from './components/ui/button'
@@ -20,9 +20,13 @@ import {
   Loader2,
   Twitter,
   Linkedin,
-  Hash
+  Hash,
+  User,
+  Bot
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface WebsiteData {
   url: string
@@ -66,6 +70,7 @@ function App() {
   const [isChatting, setIsChatting] = useState(false)
   const [progress, setProgress] = useState(0)
   const [currentStep, setCurrentStep] = useState('')
+  const chatEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const unsubscribe = blink.auth.onAuthStateChanged((state) => {
@@ -74,6 +79,11 @@ function App() {
     })
     return unsubscribe
   }, [])
+
+  // Auto-scroll to bottom when new messages are added
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatMessages, isChatting])
 
   const extractWebsiteData = async () => {
     if (!websiteUrl.trim()) {
@@ -171,21 +181,44 @@ Format your response as JSON:
         })
 
         try {
+          // Try to parse as JSON first
           const parsed = JSON.parse(text)
           posts.push({
             platform,
-            content: parsed.content,
-            characterCount: parsed.content.length,
-            reasoning: parsed.reasoning
+            content: parsed.content || text,
+            characterCount: (parsed.content || text).length,
+            reasoning: parsed.reasoning || 'Generated using AI optimization strategies'
           })
         } catch {
-          // Fallback if JSON parsing fails
-          posts.push({
-            platform,
-            content: text,
-            characterCount: text.length,
-            reasoning: 'Generated using AI optimization strategies'
-          })
+          // If JSON parsing fails, try to extract content from markdown-like format
+          const contentMatch = text.match(/```(?:json)?\s*({[\s\S]*?})\s*```/)
+          if (contentMatch) {
+            try {
+              const parsed = JSON.parse(contentMatch[1])
+              posts.push({
+                platform,
+                content: parsed.content || text,
+                characterCount: (parsed.content || text).length,
+                reasoning: parsed.reasoning || 'Generated using AI optimization strategies'
+              })
+            } catch {
+              // Final fallback
+              posts.push({
+                platform,
+                content: text,
+                characterCount: text.length,
+                reasoning: 'Generated using AI optimization strategies'
+              })
+            }
+          } else {
+            // Final fallback
+            posts.push({
+              platform,
+              content: text,
+              characterCount: text.length,
+              reasoning: 'Generated using AI optimization strategies'
+            })
+          }
         }
       }
 
@@ -469,14 +502,43 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                               </Badge>
                             </CardTitle>
                           </CardHeader>
-                          <CardContent className="space-y-4">
-                            <div className="bg-muted p-4 rounded-lg">
-                              <pre className="whitespace-pre-wrap font-sans text-sm">{post.content}</pre>
+                          <CardContent className="space-y-6">
+                            {/* Post Content */}
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium text-sm">Generated Post</h4>
+                                <Badge variant="outline" className="text-xs">
+                                  {post.characterCount} chars
+                                </Badge>
+                              </div>
+                              <div className="bg-muted p-4 rounded-lg border">
+                                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">{post.content}</pre>
+                              </div>
                             </div>
                             
-                            <div className="space-y-2">
-                              <h4 className="font-medium text-sm">AI Reasoning:</h4>
-                              <p className="text-sm text-muted-foreground">{post.reasoning}</p>
+                            {/* AI Reasoning */}
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2">
+                                <Brain className="h-4 w-4 text-primary" />
+                                <h4 className="font-medium text-sm">AI Strategy & Reasoning</h4>
+                              </div>
+                              <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+                                <ReactMarkdown 
+                                  remarkPlugins={[remarkGfm]}
+                                  className="text-sm text-blue-900 dark:text-blue-100 prose prose-sm max-w-none prose-blue"
+                                  components={{
+                                    p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                    ul: ({ children }) => <ul className="list-disc list-inside space-y-1 mb-2">{children}</ul>,
+                                    ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 mb-2">{children}</ol>,
+                                    li: ({ children }) => <li className="text-sm">{children}</li>,
+                                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                                    em: ({ children }) => <em className="italic">{children}</em>,
+                                    code: ({ children }) => <code className="bg-blue-100 dark:bg-blue-900 px-1 py-0.5 rounded text-xs">{children}</code>
+                                  }}
+                                >
+                                  {post.reasoning}
+                                </ReactMarkdown>
+                              </div>
                             </div>
                             
                             <Button 
@@ -485,7 +547,7 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                               variant="outline"
                             >
                               <Copy className="h-4 w-4 mr-2" />
-                              Copy to Clipboard
+                              Copy Post to Clipboard
                             </Button>
                           </CardContent>
                         </Card>
@@ -506,58 +568,117 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
               </TabsContent>
               
               <TabsContent value="chat" className="space-y-4">
-                <Card className="h-[600px] flex flex-col">
+                <Card className="flex flex-col" style={{ height: `${Math.max(600, chatMessages.length * 120 + 300)}px` }}>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <MessageSquare className="h-5 w-5" />
                       AI Launch Expert
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="flex-1 flex flex-col">
+                  <CardContent className="flex-1 flex flex-col min-h-0">
                     <ScrollArea className="flex-1 pr-4">
-                      <div className="space-y-4">
+                      <div className="space-y-6 pb-4">
                         {chatMessages.length === 0 && (
-                          <div className="text-center text-muted-foreground py-8">
-                            <MessageSquare className="h-8 w-8 mx-auto mb-2" />
-                            <p>Start a conversation with the AI to improve your launch posts</p>
+                          <div className="text-center text-muted-foreground py-12">
+                            <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                              <Bot className="h-8 w-8 text-primary" />
+                            </div>
+                            <h3 className="font-medium mb-2">AI Launch Expert Ready</h3>
+                            <p className="text-sm">Start a conversation to improve your launch posts with expert strategies</p>
                           </div>
                         )}
                         
                         {chatMessages.map((message, index) => (
                           <div
                             key={index}
-                            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                            className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                           >
+                            {message.role === 'assistant' && (
+                              <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 mt-1">
+                                <Bot className="h-4 w-4 text-primary" />
+                              </div>
+                            )}
+                            
                             <div
-                              className={`max-w-[80%] p-3 rounded-lg ${
+                              className={`max-w-[85%] ${
                                 message.role === 'user'
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'bg-muted'
-                              }`}
+                                  ? 'bg-primary text-primary-foreground rounded-2xl rounded-tr-md'
+                                  : 'bg-muted rounded-2xl rounded-tl-md'
+                              } p-4 shadow-sm`}
                             >
-                              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                              <p className="text-xs opacity-70 mt-1">
-                                {message.timestamp.toLocaleTimeString()}
-                              </p>
+                              {message.role === 'assistant' ? (
+                                <ReactMarkdown 
+                                  remarkPlugins={[remarkGfm]}
+                                  className="text-sm prose prose-sm max-w-none dark:prose-invert"
+                                  components={{
+                                    p: ({ children }) => <p className="mb-3 last:mb-0 leading-relaxed">{children}</p>,
+                                    ul: ({ children }) => <ul className="list-disc list-inside space-y-1 mb-3 ml-2">{children}</ul>,
+                                    ol: ({ children }) => <ol className="list-decimal list-inside space-y-1 mb-3 ml-2">{children}</ol>,
+                                    li: ({ children }) => <li className="text-sm leading-relaxed">{children}</li>,
+                                    strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+                                    em: ({ children }) => <em className="italic">{children}</em>,
+                                    code: ({ children }) => <code className="bg-muted-foreground/10 px-1.5 py-0.5 rounded text-xs font-mono">{children}</code>,
+                                    pre: ({ children }) => <pre className="bg-muted-foreground/10 p-3 rounded-lg overflow-x-auto text-xs font-mono mb-3">{children}</pre>,
+                                    blockquote: ({ children }) => <blockquote className="border-l-4 border-primary/30 pl-4 italic mb-3">{children}</blockquote>,
+                                    h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
+                                    h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
+                                    h3: ({ children }) => <h3 className="text-sm font-bold mb-2">{children}</h3>,
+                                  }}
+                                >
+                                  {message.content}
+                                </ReactMarkdown>
+                              ) : (
+                                <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                              )}
+                              
+                              <div className="flex items-center justify-between mt-3 pt-2 border-t border-current/10">
+                                <p className="text-xs opacity-70">
+                                  {message.timestamp.toLocaleTimeString()}
+                                </p>
+                                {message.role === 'assistant' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 text-xs opacity-70 hover:opacity-100"
+                                    onClick={() => copyToClipboard(message.content, 'AI Response')}
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
+                            
+                            {message.role === 'user' && (
+                              <div className="bg-primary/10 rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0 mt-1">
+                                <User className="h-4 w-4 text-primary" />
+                              </div>
+                            )}
                           </div>
                         ))}
                         
                         {isChatting && (
-                          <div className="flex justify-start">
-                            <div className="bg-muted p-3 rounded-lg">
-                              <Loader2 className="h-4 w-4 animate-spin" />
+                          <div className="flex gap-3 justify-start">
+                            <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0">
+                              <Bot className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="bg-muted rounded-2xl rounded-tl-md p-4 shadow-sm">
+                              <div className="flex items-center gap-2">
+                                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                <span className="text-sm text-muted-foreground">AI is thinking...</span>
+                              </div>
                             </div>
                           </div>
                         )}
+                        
+                        <div ref={chatEndRef} />
                       </div>
                     </ScrollArea>
                     
                     <Separator className="my-4" />
                     
-                    <div className="flex gap-2">
+                    <div className="flex gap-3">
                       <Textarea
-                        placeholder="Ask the AI to improve your launch posts..."
+                        placeholder="Ask the AI to improve your launch posts, suggest strategies, or refine your messaging..."
                         value={chatInput}
                         onChange={(e) => setChatInput(e.target.value)}
                         onKeyDown={(e) => {
@@ -567,13 +688,14 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
                           }
                         }}
                         disabled={isChatting || !websiteData}
-                        className="resize-none"
-                        rows={2}
+                        className="resize-none min-h-[80px]"
+                        rows={3}
                       />
                       <Button 
                         onClick={sendChatMessage}
                         disabled={!chatInput.trim() || isChatting || !websiteData}
-                        size="sm"
+                        size="lg"
+                        className="px-6"
                       >
                         {isChatting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send'}
                       </Button>
