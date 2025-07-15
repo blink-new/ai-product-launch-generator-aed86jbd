@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { blink } from './blink/client'
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card'
 import { Button } from './components/ui/button'
@@ -22,11 +22,29 @@ import {
   Linkedin,
   Hash,
   User,
-  Bot
+  Bot,
+  Save,
+  FolderOpen,
+  Plus,
+  Trash2
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+
+interface Project {
+  id: string
+  userId: string
+  name: string
+  websiteUrl?: string
+  websiteTitle?: string
+  websiteDescription?: string
+  websiteContent?: string
+  websiteMetadata?: any
+  selectedPlatforms?: string[]
+  createdAt: string
+  updatedAt: string
+}
 
 interface WebsiteData {
   url: string
@@ -37,6 +55,7 @@ interface WebsiteData {
 }
 
 interface GeneratedPost {
+  id?: string
   platform: string
   content: string
   characterCount: number
@@ -44,6 +63,7 @@ interface GeneratedPost {
 }
 
 interface ChatMessage {
+  id?: string
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
@@ -59,6 +79,8 @@ const PLATFORMS = [
 function App() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [currentProject, setCurrentProject] = useState<Project | null>(null)
   const [websiteUrl, setWebsiteUrl] = useState('')
   const [websiteData, setWebsiteData] = useState<WebsiteData | null>(null)
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['producthunt'])
@@ -68,17 +90,201 @@ function App() {
   const [isExtracting, setIsExtracting] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isChatting, setIsChatting] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false)
   const [progress, setProgress] = useState(0)
   const [currentStep, setCurrentStep] = useState('')
+  const [showProjectSelector, setShowProjectSelector] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const unsubscribe = blink.auth.onAuthStateChanged((state) => {
       setUser(state.user)
       setLoading(state.isLoading)
+      if (state.user && !state.isLoading) {
+        loadProjects()
+      }
     })
     return unsubscribe
-  }, [])
+  }, [loadProjects])
+
+  // Load user's projects
+  const loadProjects = useCallback(async () => {
+    if (!user) return
+    
+    setIsLoadingProjects(true)
+    try {
+      const userProjects = await blink.db.projects.list({
+        where: { userId: user.id },
+        orderBy: { updatedAt: 'desc' }
+      })
+      setProjects(userProjects)
+      
+      // Auto-load the most recent project if no current project
+      if (!currentProject && userProjects.length > 0) {
+        loadProject(userProjects[0])
+      }
+    } catch (error) {
+      console.error('Error loading projects:', error)
+      toast.error('Failed to load projects')
+    } finally {
+      setIsLoadingProjects(false)
+    }
+  }, [user, currentProject])
+
+  // Load a specific project
+  const loadProject = async (project: Project) => {
+    setCurrentProject(project)
+    
+    // Load project data
+    if (project.websiteUrl) {
+      setWebsiteUrl(project.websiteUrl)
+      setWebsiteData({
+        url: project.websiteUrl,
+        title: project.websiteTitle || '',
+        description: project.websiteDescription || '',
+        content: project.websiteContent || '',
+        metadata: project.websiteMetadata ? JSON.parse(project.websiteMetadata) : {}
+      })
+    }
+    
+    if (project.selectedPlatforms) {
+      setSelectedPlatforms(project.selectedPlatforms)
+    }
+    
+    // Load generated posts
+    try {
+      const posts = await blink.db.generatedPosts.list({
+        where: { projectId: project.id },
+        orderBy: { createdAt: 'desc' }
+      })
+      setGeneratedPosts(posts.map(post => ({
+        id: post.id,
+        platform: post.platform,
+        content: post.content,
+        characterCount: post.characterCount,
+        reasoning: post.reasoning || ''
+      })))
+    } catch (error) {
+      console.error('Error loading posts:', error)
+    }
+    
+    // Load chat messages
+    try {
+      const messages = await blink.db.chatMessages.list({
+        where: { projectId: project.id },
+        orderBy: { createdAt: 'asc' }
+      })
+      setChatMessages(messages.map(msg => ({
+        id: msg.id,
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content,
+        timestamp: new Date(msg.createdAt)
+      })))
+    } catch (error) {
+      console.error('Error loading chat messages:', error)
+    }
+    
+    toast.success(`Loaded project: ${project.name}`)
+  }
+
+  // Create a new project
+  const createNewProject = async () => {
+    if (!user) return
+    
+    const projectName = `Launch Project ${new Date().toLocaleDateString()}`
+    const projectId = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    
+    try {
+      const newProject: Project = {
+        id: projectId,
+        userId: user.id,
+        name: projectName,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+      
+      await blink.db.projects.create(newProject)
+      
+      // Reset current state
+      setWebsiteUrl('')
+      setWebsiteData(null)
+      setSelectedPlatforms(['producthunt'])
+      setGeneratedPosts([])
+      setChatMessages([])
+      
+      // Update projects list and set as current
+      setProjects(prev => [newProject, ...prev])
+      setCurrentProject(newProject)
+      setShowProjectSelector(false)
+      
+      toast.success('New project created!')
+    } catch (error) {
+      console.error('Error creating project:', error)
+      toast.error('Failed to create new project')
+    }
+  }
+
+  // Save current project
+  const saveProject = async () => {
+    if (!user || !currentProject) return
+    
+    setIsSaving(true)
+    try {
+      const updatedProject: Partial<Project> = {
+        name: currentProject.name,
+        websiteUrl: websiteData?.url,
+        websiteTitle: websiteData?.title,
+        websiteDescription: websiteData?.description,
+        websiteContent: websiteData?.content,
+        websiteMetadata: websiteData?.metadata ? JSON.stringify(websiteData.metadata) : null,
+        selectedPlatforms,
+        updatedAt: new Date().toISOString()
+      }
+      
+      await blink.db.projects.update(currentProject.id, updatedProject)
+      
+      // Update local state
+      setCurrentProject(prev => prev ? { ...prev, ...updatedProject } : null)
+      setProjects(prev => prev.map(p => p.id === currentProject.id ? { ...p, ...updatedProject } : p))
+      
+      toast.success('Project saved!')
+    } catch (error) {
+      console.error('Error saving project:', error)
+      toast.error('Failed to save project')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Delete a project
+  const deleteProject = async (projectId: string) => {
+    if (!user) return
+    
+    try {
+      await blink.db.projects.delete(projectId)
+      setProjects(prev => prev.filter(p => p.id !== projectId))
+      
+      if (currentProject?.id === projectId) {
+        const remainingProjects = projects.filter(p => p.id !== projectId)
+        if (remainingProjects.length > 0) {
+          loadProject(remainingProjects[0])
+        } else {
+          setCurrentProject(null)
+          setWebsiteUrl('')
+          setWebsiteData(null)
+          setSelectedPlatforms(['producthunt'])
+          setGeneratedPosts([])
+          setChatMessages([])
+        }
+      }
+      
+      toast.success('Project deleted!')
+    } catch (error) {
+      console.error('Error deleting project:', error)
+      toast.error('Failed to delete project')
+    }
+  }
 
   // Auto-scroll to bottom when new messages are added
   useEffect(() => {
@@ -89,6 +295,11 @@ function App() {
     if (!websiteUrl.trim()) {
       toast.error('Please enter a website URL')
       return
+    }
+
+    // Create a new project if user doesn't have one
+    if (!currentProject && user) {
+      await createNewProject()
     }
 
     setIsExtracting(true)
@@ -113,6 +324,26 @@ function App() {
       setWebsiteData(websiteInfo)
       setProgress(100)
       setCurrentStep('Website data extracted successfully!')
+      
+      // Auto-save project if we have one
+      if (currentProject && user) {
+        try {
+          const updatedProject: Partial<Project> = {
+            websiteUrl: websiteInfo.url,
+            websiteTitle: websiteInfo.title,
+            websiteDescription: websiteInfo.description,
+            websiteContent: websiteInfo.content,
+            websiteMetadata: JSON.stringify(websiteInfo.metadata),
+            updatedAt: new Date().toISOString()
+          }
+          
+          await blink.db.projects.update(currentProject.id, updatedProject)
+          setCurrentProject(prev => prev ? { ...prev, ...updatedProject } : null)
+          setProjects(prev => prev.map(p => p.id === currentProject.id ? { ...p, ...updatedProject } : p))
+        } catch (error) {
+          console.error('Error auto-saving project:', error)
+        }
+      }
       
       toast.success('Website content extracted successfully!')
     } catch (error) {
@@ -223,6 +454,28 @@ Format your response as JSON:
       }
 
       setGeneratedPosts(posts)
+      
+      // Save posts to database if we have a current project
+      if (currentProject && user) {
+        try {
+          for (const post of posts) {
+            const postId = `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+            await blink.db.generatedPosts.create({
+              id: postId,
+              projectId: currentProject.id,
+              userId: user.id,
+              platform: post.platform,
+              content: post.content,
+              characterCount: post.characterCount,
+              reasoning: post.reasoning,
+              createdAt: new Date().toISOString()
+            })
+          }
+        } catch (error) {
+          console.error('Error saving posts to database:', error)
+        }
+      }
+      
       setProgress(100)
       setCurrentStep('Launch posts generated successfully!')
       toast.success('Launch posts generated successfully!')
@@ -276,6 +529,34 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
       }
 
       setChatMessages(prev => [...prev, assistantMessage])
+      
+      // Save chat messages to database if we have a current project
+      if (currentProject && user) {
+        try {
+          const userMsgId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          const assistantMsgId = `msg_${Date.now() + 1}_${Math.random().toString(36).substr(2, 9)}`
+          
+          await blink.db.chatMessages.create({
+            id: userMsgId,
+            projectId: currentProject.id,
+            userId: user.id,
+            role: 'user',
+            content: userMessage.content,
+            createdAt: userMessage.timestamp.toISOString()
+          })
+          
+          await blink.db.chatMessages.create({
+            id: assistantMsgId,
+            projectId: currentProject.id,
+            userId: user.id,
+            role: 'assistant',
+            content: assistantMessage.content,
+            createdAt: assistantMessage.timestamp.toISOString()
+          })
+        } catch (error) {
+          console.error('Error saving chat messages to database:', error)
+        }
+      }
     } catch (error) {
       console.error('Error in chat:', error)
       toast.error('Failed to get AI response')
@@ -289,12 +570,28 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
     toast.success(`${platform} post copied to clipboard!`)
   }
 
-  const togglePlatform = (platformId: string) => {
-    setSelectedPlatforms(prev => 
-      prev.includes(platformId) 
-        ? prev.filter(id => id !== platformId)
-        : [...prev, platformId]
-    )
+  const togglePlatform = async (platformId: string) => {
+    const newPlatforms = selectedPlatforms.includes(platformId) 
+      ? selectedPlatforms.filter(id => id !== platformId)
+      : [...selectedPlatforms, platformId]
+    
+    setSelectedPlatforms(newPlatforms)
+    
+    // Auto-save platform selection if we have a current project
+    if (currentProject && user) {
+      try {
+        const updatedProject: Partial<Project> = {
+          selectedPlatforms: newPlatforms,
+          updatedAt: new Date().toISOString()
+        }
+        
+        await blink.db.projects.update(currentProject.id, updatedProject)
+        setCurrentProject(prev => prev ? { ...prev, ...updatedProject } : null)
+        setProjects(prev => prev.map(p => p.id === currentProject.id ? { ...p, ...updatedProject } : p))
+      } catch (error) {
+        console.error('Error auto-saving platform selection:', error)
+      }
+    }
   }
 
   if (loading) {
@@ -342,6 +639,39 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
               <h1 className="text-xl font-semibold">AI Product Launch Generator</h1>
             </div>
             <div className="flex items-center gap-4">
+              {/* Project Management */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowProjectSelector(!showProjectSelector)}
+                  disabled={isLoadingProjects}
+                >
+                  <FolderOpen className="h-4 w-4 mr-2" />
+                  {currentProject ? currentProject.name : 'Select Project'}
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={createNewProject}
+                  disabled={isLoadingProjects}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+                
+                {currentProject && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={saveProject}
+                    disabled={isSaving}
+                  >
+                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  </Button>
+                )}
+              </div>
+              
               <span className="text-sm text-muted-foreground">Welcome, {user.email}</span>
               <Button variant="outline" size="sm" onClick={() => blink.auth.logout()}>
                 Sign Out
@@ -350,6 +680,87 @@ Provide helpful, actionable advice for improving their launch strategy and copy.
           </div>
         </div>
       </header>
+
+      {/* Project Selector Dropdown */}
+      {showProjectSelector && (
+        <div className="border-b bg-card">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium">Your Projects</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowProjectSelector(false)}
+                >
+                  ×
+                </Button>
+              </div>
+              
+              {isLoadingProjects ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  <span className="ml-2 text-muted-foreground">Loading projects...</span>
+                </div>
+              ) : projects.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {projects.map((project) => (
+                    <Card
+                      key={project.id}
+                      className={`cursor-pointer transition-colors hover:bg-muted/50 ${
+                        currentProject?.id === project.id ? 'border-primary bg-primary/5' : ''
+                      }`}
+                      onClick={() => {
+                        loadProject(project)
+                        setShowProjectSelector(false)
+                      }}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium truncate">{project.name}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {project.websiteUrl || 'No website set'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Updated {new Date(project.updatedAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {currentProject?.id === project.id && (
+                              <CheckCircle className="h-4 w-4 text-primary" />
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (confirm('Are you sure you want to delete this project?')) {
+                                  deleteProject(project.id)
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-4">No projects yet</p>
+                  <Button onClick={createNewProject}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Your First Project
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
